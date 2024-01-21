@@ -9,10 +9,10 @@
     "dist"
   ],
   "license": "MIT",
-  "homepage": "",
+  "homepage": "https://github.com/hoah2333/koishi-plugin-crom-querier",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/hoah2333/koishi-plugin-crom-querier.git"
   },
   "scripts": {},
   "keywords": [
