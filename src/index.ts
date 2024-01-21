@@ -1,4 +1,4 @@
-import { Context, Schema } from 'koishi'
+import { Context, Schema, Logger } from 'koishi'
 
 export const name = 'crom-querier'
 
@@ -59,6 +59,34 @@ export function apply(ctx: Context) {
       }  \
       ";
 
+    var userRankQueryString =
+        " \
+      query userRankQuery($rank: Int!, $anyBaseUrl: [String!], $baseUrl: String!) { \
+        usersByRank(rank: $rank, filter: {anyBaseUrl: $anyBaseUrl}) { \
+          name \
+          wikidotInfo{ \
+            displayName \
+            wikidotId \
+            unixName \
+          } \
+          authorInfos{ \
+            site \
+            authorPage{ \
+              translationOf { \
+                url \
+              } \
+              url \
+            } \
+          } \
+          statistics(baseUrl: $baseUrl){ \
+            rank \
+            totalRating \
+            pageCount \
+          } \
+        } \
+      } \
+      "
+
     var apiList = [
         "https://api.crom.avn.sh/graphql",
         "https://zh.xjo.ch/crom/graphql",
@@ -100,6 +128,7 @@ export function apply(ctx: Context) {
     ctx.on("message", (session) => {
         let titleQueryReg = new RegExp("\{[^\{\}]+\}");
         let authorQueryReg = new RegExp("&[^&]+&");
+        let authorRankQueryReg = new RegExp("&([^&]+|)#[0-9]+&");
         let content = session.content;
         if (/&amp;/.test(content)) {
             content = content.replace(/&amp;/g, "&");
@@ -112,15 +141,22 @@ export function apply(ctx: Context) {
             });
         }
         if (authorQueryReg.test(content)) {
-            let authorQuery = queryCut(content, authorQueryReg, userQueryString);
-            let author = userProceed(authorQuery);
+            let authorQuery: Promise<any>;
+            let author: Promise<any>;
+            if (authorRankQueryReg.test(content)) {
+                authorQuery = queryCut(content, authorRankQueryReg, userRankQueryString, true);
+                author = userProceed(authorQuery, true);
+            } else {
+                authorQuery = queryCut(content, authorQueryReg, userQueryString);
+                author = userProceed(authorQuery);
+            }
             author.then(output => {
                 session.sendQueued(output, 1000);
             });
         }
     });
 
-    function queryCut(query: string, queryReg: RegExp, queryString: string) {
+    function queryCut(query: string, queryReg: RegExp, queryString: string, isRank = false) {
         let queryCuted: string;
         let branch: string;
         let branchUrl: string;
@@ -128,7 +164,7 @@ export function apply(ctx: Context) {
         queryCuted = query.match(queryReg)[0].slice(1, -1);
         branch = (/\[[\w]+\]/.test(queryCuted) ? queryCuted.match(/\[[\w]+\]/)[0].slice(1, -1).toLowerCase() : "cn");
         branchUrl = (branchInfo[branch] ? branchInfo[branch]["url"] : branchInfo["cn"]["url"]);
-        car = cromApiRequest(queryCuted.split("]").reverse()[0], branchUrl, branchUrl, 0, queryString);
+        car = cromApiRequest(isRank ? parseInt(queryCuted.split("#").reverse()[0]) : queryCuted.split("]").reverse()[0], branchUrl, 0, queryString);
         return car;
     }
 
@@ -151,12 +187,12 @@ export function apply(ctx: Context) {
         });
     }
 
-    async function userProceed(promise: Promise<any>) {
+    async function userProceed(promise: Promise<any>, isRank = false) {
         return promise.then((Object) => {
-            if (Object.searchUsers.length == 0) {
+            if ((isRank ? Object.usersByRank : Object.searchUsers).length == 0) {
                 return "未找到用户。";
             }
-            let user = Object.searchUsers[0];
+            let user = (isRank ? Object.usersByRank : Object.searchUsers)[0];
             let userName = user.name;
             let userRank = user.statistics.rank;
             let userTotalRating = user.statistics.totalRating;
@@ -164,11 +200,14 @@ export function apply(ctx: Context) {
             let userAuthorPageUrl = authorpageOutput(user.authorInfos);
             return userName + " (#" + userRank + ")" +
                 "\n总分：" + userTotalRating + "   总页面数：" + userPageCount + "   平均分：" + (userTotalRating / userPageCount).toFixed(2) +
-                "\n作者页：" + userAuthorPageUrl;
+                (userAuthorPageUrl != "" ? "\n作者页：" + userAuthorPageUrl : "");
         })
     }
 
     function authorpageOutput(authorInfos: any) {
+        if (authorInfos.length == 0) {
+            return "";
+        }
         for (let i = 0; i <= authorInfos.length; i++) {
             if (authorInfos[i].authorPage.translationOf == null) {
                 return authorInfos[i].authorPage.url;
@@ -200,7 +239,7 @@ export function apply(ctx: Context) {
         return author;
     }
 
-    async function cromApiRequest(titleQuery: string, anyBaseUrl: string, baseUrl: string, endpointIndex: number, queryString: string) {
+    async function cromApiRequest(titleQuery: any, baseUrl: string, endpointIndex: number, queryString: string) {
         const response = await fetch(apiList[endpointIndex], {
             method: "POST",
             headers: new Headers({
@@ -210,8 +249,9 @@ export function apply(ctx: Context) {
                 query: queryString,
                 variables: {
                     query: titleQuery,
-                    anyBaseUrl: (anyBaseUrl != "" ? anyBaseUrl : null),
-                    baseUrl: baseUrl
+                    anyBaseUrl: (baseUrl != "" ? baseUrl : null),
+                    baseUrl: baseUrl,
+                    rank: titleQuery
                 }
             })
         });
@@ -227,7 +267,7 @@ export function apply(ctx: Context) {
 
         if (errors && errors.length > 0) {
             if (endpointIndex++ < apiList.length) {
-                cromApiRequest(titleQuery, anyBaseUrl, baseUrl, endpointIndex, queryString);
+                cromApiRequest(titleQuery, baseUrl, endpointIndex, queryString);
             } else {
                 throw new Error("Got errors: " + JSON.stringify(errors));
             }
