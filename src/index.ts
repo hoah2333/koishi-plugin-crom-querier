@@ -17,6 +17,9 @@ export function apply(ctx: Context) {
                 rating \
                 voteCount \
             } \
+            alternateTitles { \
+                title \
+              } \
             translationOf { \
                 url \
                 attributions { \
@@ -180,7 +183,8 @@ export function apply(ctx: Context) {
             let articleVoteCount = article.wikidotInfo.voteCount;
             let isTranslation = (article.translationOf != null ? true : false);
             let articleAuthor = authorOutput(article, isTranslation);
-            return articleTitle +
+            let articleAlternateTitle = (article.alternateTitles.length != 0 ? " - " + article.alternateTitles[0].title : "");
+            return articleTitle + articleAlternateTitle +
                 "\n评分：" + articleRating + " (+" + (articleVoteCount - (articleVoteCount - articleRating) / 2) + ", -" + (articleVoteCount - articleRating) / 2 + ")\n" +
                 articleAuthor +
                 "\n" + articleURL;
