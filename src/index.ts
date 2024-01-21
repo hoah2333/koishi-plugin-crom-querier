@@ -50,6 +50,9 @@ export function apply(ctx: Context) {
           authorInfos{ \
             site \
             authorPage{ \
+              translationOf { \
+                url \
+              } \
               url \
             } \
           } \
@@ -131,7 +134,7 @@ export function apply(ctx: Context) {
     ctx.on("message", (session) => {
         let titleQueryReg = new RegExp("\{[^\{\}]+\}");
         let authorQueryReg = new RegExp("&[^&]+&");
-        let authorRankQueryReg = new RegExp("&([^&]+|)#[0-9]+&");
+        let authorRankQueryReg = new RegExp("&([^&]*)#[0-9]+&");
         let content = session.content;
         if (/&amp;/.test(content)) {
             content = content.replace(/&amp;/g, "&");
@@ -143,7 +146,7 @@ export function apply(ctx: Context) {
                 session.sendQueued(output, 1000);
             });
         }
-        if (authorQueryReg.test(content)) {
+        if (authorQueryReg.test(content) && !/http(s)?:\/\/[\w./?=]+&/g.test(content)) {
             let authorQuery: Promise<any>;
             let author: Promise<any>;
             if (authorRankQueryReg.test(content)) {
