@@ -215,7 +215,7 @@ export function apply(ctx: Context) {
         if (authorInfos.length == 0) {
             return "";
         }
-        for (let i = 0; i <= authorInfos.length; i++) {
+        for (let i = 0; i < authorInfos.length; i++) {
             if (authorInfos[i].authorPage.translationOf == null) {
                 return authorInfos[i].authorPage.url;
             }
