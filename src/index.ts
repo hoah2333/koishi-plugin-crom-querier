@@ -139,6 +139,9 @@ export function apply(ctx: Context) {
         if (/&amp;/.test(content)) {
             content = content.replace(/&amp;/g, "&");
         }
+        if (/&[\w]+;/.test(content)) {
+            content = content.replace(/&[\w]+;/g, "");
+        }
         if (titleQueryReg.test(content)) {
             let titleQuery = queryCut(content, titleQueryReg, titleQueryString);
             let title = titleProceed(titleQuery);
