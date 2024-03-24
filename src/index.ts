@@ -16,6 +16,7 @@ export function apply(ctx: Context) {
                 title \
                 rating \
                 voteCount \
+                createdAt \
             } \
             alternateTitles { \
                 title \
@@ -132,9 +133,9 @@ export function apply(ctx: Context) {
     }
 
     ctx.on("message", (session) => {
-        let titleQueryReg = new RegExp("\{[^\{\}]+\}");
-        let authorQueryReg = new RegExp("&[^&]+&");
-        let authorRankQueryReg = new RegExp("&([^&]*)#[0-9]+&");
+        let titleQueryReg = new RegExp("\{[^\{\}\n]+\}");
+        let authorQueryReg = new RegExp("&[^&\n]+&");
+        let authorRankQueryReg = new RegExp("&([^&\n]*)#[0-9]+&");
         let content = session.content;
         if (/&amp;/.test(content)) {
             content = content.replace(/&amp;/g, "&");
@@ -191,8 +192,8 @@ export function apply(ctx: Context) {
             let articleAuthor = authorOutput(article, isTranslation);
             let articleAlternateTitle = (article.alternateTitles.length != 0 ? " - " + article.alternateTitles[0].title : "");
             return articleTitle + articleAlternateTitle +
-                "\n评分：" + articleRating + " (+" + (articleVoteCount - (articleVoteCount - articleRating) / 2) + ", -" + (articleVoteCount - articleRating) / 2 + ")\n" +
-                articleAuthor +
+                "\n评分：" + articleRating + " (+" + (articleVoteCount - (articleVoteCount - articleRating) / 2) + ", -" + (articleVoteCount - articleRating) / 2 + ")" + 
+                "\n" + articleAuthor +
                 "\n" + articleURL;
         });
     }
