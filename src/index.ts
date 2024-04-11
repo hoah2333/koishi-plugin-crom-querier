@@ -133,9 +133,9 @@ export function apply(ctx: Context) {
     }
 
     ctx.on("message", (session) => {
-        let titleQueryReg = new RegExp("\{[^\{\}\n]+\}");
-        let authorQueryReg = new RegExp("&[^&\n]+&");
-        let authorRankQueryReg = new RegExp("&([^&\n]*)#[0-9]+&");
+        let titleQueryReg = new RegExp("\{[^\{\}\n]{1,15}\}");
+        let authorQueryReg = new RegExp("&[^&\n]{1,15}&");
+        let authorRankQueryReg = new RegExp("&([^&\n]*)#[0-9]{1,15}&");
         let content = session.content;
         if (/&amp;/.test(content)) {
             content = content.replace(/&amp;/g, "&");
