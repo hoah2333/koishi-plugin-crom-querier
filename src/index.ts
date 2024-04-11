@@ -150,7 +150,7 @@ export function apply(ctx: Context) {
                 session.sendQueued(output, 1000);
             });
         }
-        if (authorQueryReg.test(content) && !/http(s)?:\/\/[\w./?=_-]+&/g.test(content)) {
+        if (authorQueryReg.test(content) && !/(http(s)?|appimg)?:\/\/[\w./?%=_-]+&/g.test(content)) {
             let authorQuery: Promise<any>;
             let author: Promise<any>;
             if (authorRankQueryReg.test(content)) {
