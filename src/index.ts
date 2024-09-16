@@ -1,289 +1,147 @@
-import { Context, Schema, Logger } from 'koishi'
+import { Context, Schema } from "koishi";
+import type { Argv } from "koishi";
+import { cromApiRequest } from "./lib";
+import { titleQueryString, userQueryString, userRankQueryString, branchInfo } from "./lib";
+import type { TitleQuery, UserQuery, UserRankQuery } from "./lib";
 
-export const name = 'crom-querier'
+export const name: string = "crom-querier";
 
-export interface Config { }
+export interface Config {}
 
-export const Config: Schema<Config> = Schema.object({})
+export const Config: Schema<Config> = Schema.object({});
 
-export function apply(ctx: Context) {
-    var titleQueryString =
-        " \
-    query titleQuery($query: String!, $anyBaseUrl: [String!]) { \
-        searchPages(query: $query, filter: {anyBaseUrl: $anyBaseUrl}) { \
-            url \
-            wikidotInfo { \
-                title \
-                rating \
-                voteCount \
-                createdAt \
-            } \
-            alternateTitles { \
-                title \
-              } \
-            translationOf { \
-                url \
-                attributions { \
-                    user { \
-                        name \
-                    } \
-                } \
-            } \
-            attributions { \
-                user { \
-                    name \
-                } \
-            } \
-        } \
-    } \
-        ";
+export function apply(ctx: Context): void {
+    ctx.command("author <作者:string> [分部名称:string]", "查询作者信息。\n默认搜索后室中文站。", { authority: 0 }).alias("作者").alias("作").alias("au").action(
+        async (_: Argv, author: string, branch: string | undefined): Promise<string> => {
+            let authorRankQueryReg: RegExp = new RegExp("([^&\n]*)#[0-9]{1,15}");
+            let branchUrl: string = branch ? branchInfo[branch]["url"] : branchInfo["cn"]["url"];
 
-    var userQueryString =
-        " \
-    query userQuery($query: String!, $anyBaseUrl: [String!], $baseUrl: String!) { \
-        searchUsers(query: $query, filter: {anyBaseUrl: $anyBaseUrl}) { \
-          name \
-          wikidotInfo{ \
-            displayName \
-            wikidotId \
-            unixName \
-          } \
-          authorInfos{ \
-            site \
-            authorPage{ \
-              translationOf { \
-                url \
-              } \
-              url \
-            } \
-          } \
-          statistics(baseUrl: $baseUrl){ \
-            rank \
-            totalRating \
-            pageCount \
-          } \
-        } \
-      }  \
-      ";
+            return userProceed(
+                await cromApiRequest(
+                    author,
+                    branchUrl,
+                    0,
+                    authorRankQueryReg.test(author) ? userRankQueryString : userQueryString
+                ),
+                branchUrl,
+                authorRankQueryReg.test(author)
+            );
 
-    var userRankQueryString =
-        " \
-      query userRankQuery($rank: Int!, $anyBaseUrl: [String!], $baseUrl: String!) { \
-        usersByRank(rank: $rank, filter: {anyBaseUrl: $anyBaseUrl}) { \
-          name \
-          wikidotInfo{ \
-            displayName \
-            wikidotId \
-            unixName \
-          } \
-          authorInfos{ \
-            site \
-            authorPage{ \
-              translationOf { \
-                url \
-              } \
-              url \
-            } \
-          } \
-          statistics(baseUrl: $baseUrl){ \
-            rank \
-            totalRating \
-            pageCount \
-          } \
-        } \
-      } \
-      "
-
-    var apiList = [
-        "https://api.crom.avn.sh/graphql",
-        "https://zh.xjo.ch/crom/graphql",
-    ]
-
-    var branchInfo = {
-        cn: {
-            url: "http://backrooms-wiki-cn.wikidot.com"
-        },
-        en: {
-            url: "http://backrooms-wiki.wikidot.com"
-        },
-        es: {
-            url: "http://es-backrooms-wiki.wikidot.com"
-        },
-        fr: {
-            url: "http://fr-backrooms-wiki.wikidot.com"
-        },
-        jp: {
-            url: "http://japan-backrooms-wiki.wikidot.com"
-        },
-        pl: {
-            url: "http://pl-backrooms-wiki.wikidot.com"
-        },
-        ptbr: {
-            url: "http://pt-br-backrooms-wiki.wikidot.com"
-        },
-        ru: {
-            url: "http://ru-backrooms-wiki.wikidot.com"
-        },
-        vn: {
-            url: "http://backrooms-vn.wikidot.com"
-        },
-        all: {
-            url: ""
-        }
-    }
-
-    ctx.on("message", (session) => {
-        let titleQueryReg = new RegExp("\{[^\{\}\n]{1,15}\}");
-        let authorQueryReg = new RegExp("&[^&\n]{1,15}&");
-        let authorRankQueryReg = new RegExp("&([^&\n]*)#[0-9]{1,15}&");
-        let content = session.content;
-        if (/&amp;/.test(content)) {
-            content = content.replace(/&amp;/g, "&");
-        }
-        if (/&[\w]+;/.test(content)) {
-            content = content.replace(/&[\w]+;/g, "");
-        }
-        if (titleQueryReg.test(content)) {
-            let titleQuery = queryCut(content, titleQueryReg, titleQueryString);
-            let title = titleProceed(titleQuery);
-            title.then(output => {
-                session.sendQueued(output, 1000);
-            });
-        }
-        if (authorQueryReg.test(content) && !/(http(s)?|appimg)?:\/\/[\w./?%=_-]+&/g.test(content)) {
-            let authorQuery: Promise<any>;
-            let author: Promise<any>;
-            if (authorRankQueryReg.test(content)) {
-                authorQuery = queryCut(content, authorRankQueryReg, userRankQueryString, true);
-                author = userProceed(authorQuery, true);
-            } else {
-                authorQuery = queryCut(content, authorQueryReg, userQueryString);
-                author = userProceed(authorQuery);
-            }
-            author.then(output => {
-                session.sendQueued(output, 1000);
-            });
-        }
-    });
-
-    function queryCut(query: string, queryReg: RegExp, queryString: string, isRank = false) {
-        let queryCuted: string;
-        let branch: string;
-        let branchUrl: string;
-        let car: Promise<any>;
-        queryCuted = query.match(queryReg)[0].slice(1, -1);
-        branch = (/\[[\w]+\]/.test(queryCuted) ? queryCuted.match(/\[[\w]+\]/)[0].slice(1, -1).toLowerCase() : "cn");
-        branchUrl = (branchInfo[branch] ? branchInfo[branch]["url"] : branchInfo["cn"]["url"]);
-        car = cromApiRequest(isRank ? parseInt(queryCuted.split("#").reverse()[0]) : queryCuted.split("]").reverse()[0], branchUrl, 0, queryString);
-        return car;
-    }
-
-    async function titleProceed(promise: Promise<any>) {
-        return promise.then((Result) => {
-            if (Result.searchPages.length == 0) {
-                return "未找到文章。";
-            }
-            let article = Result.searchPages[0];
-            let articleURL = article.url;
-            let articleRating = article.wikidotInfo.rating;
-            let articleTitle = article.wikidotInfo.title;
-            let articleVoteCount = article.wikidotInfo.voteCount;
-            let isTranslation = (article.translationOf != null ? true : false);
-            let articleAuthor = authorOutput(article, isTranslation);
-            let articleAlternateTitle = (article.alternateTitles.length != 0 ? " - " + article.alternateTitles[0].title : "");
-            return articleTitle + articleAlternateTitle +
-                "\n评分：" + articleRating + " (+" + (articleVoteCount - (articleVoteCount - articleRating) / 2) + ", -" + (articleVoteCount - articleRating) / 2 + ")" + 
-                "\n" + articleAuthor +
-                "\n" + articleURL;
-        });
-    }
-
-    async function userProceed(promise: Promise<any>, isRank = false) {
-        return promise.then((Object) => {
-            if ((isRank ? Object.usersByRank : Object.searchUsers).length == 0) {
-                return "未找到用户。";
-            }
-            let user = (isRank ? Object.usersByRank : Object.searchUsers)[0];
-            let userName = user.name;
-            let userRank = user.statistics.rank;
-            let userTotalRating = user.statistics.totalRating;
-            let userPageCount = user.statistics.pageCount;
-            let userAuthorPageUrl = authorpageOutput(user.authorInfos);
-            return userName + " (#" + userRank + ")" +
-                "\n总分：" + userTotalRating + "   总页面数：" + userPageCount + "   平均分：" + (userTotalRating / userPageCount).toFixed(2) +
-                (userAuthorPageUrl != "" ? "\n作者页：" + userAuthorPageUrl : "");
-        })
-    }
-
-    function authorpageOutput(authorInfos: any) {
-        if (authorInfos.length == 0) {
-            return "";
-        }
-        for (let i = 0; i < authorInfos.length; i++) {
-            if (authorInfos[i].authorPage.translationOf == null) {
-                return authorInfos[i].authorPage.url;
-            }
-        }
-        return "";
-    }
-
-    function authorOutput(article: any, isTranslation: boolean) {
-        let author = "";
-        isTranslation ? author += "译者：" : author += "作者：";
-        for (let i = 0; i < article.attributions.length; i++) {
-            author += article.attributions[i].user.name;
-            if (i != article.attributions.length - 1) {
-                author += "、";
-            }
-        }
-        if (isTranslation) {
-            author += "\t作者："
-            article = article.translationOf;
-            for (let i = 0; i < article.attributions.length; i++) {
-                author += article.attributions[i].user.name;
-                if (i != article.attributions.length - 1) {
-                    author += "、";
+            function userProceed(
+                object: UserQuery | UserRankQuery,
+                branch: string,
+                isRank: boolean = false
+            ): string {
+                if (
+                    Object.keys(
+                        isRank
+                            ? (object as UserRankQuery).usersByRank
+                            : (object as UserQuery).searchUsers
+                    ).length == 0
+                ) {
+                    return "未找到用户。";
                 }
+                let user: UserQuery["searchUsers"][0] | UserRankQuery["usersByRank"][0] = (
+                    isRank
+                        ? (object as UserRankQuery).usersByRank
+                        : (object as UserQuery).searchUsers
+                )[0];
+                let userTotalRating: number = user.statistics.totalRating;
+                let userPageCount: number = user.statistics.pageCount;
+                let userAuthorPageUrl: string = authorpageOutput(user.authorInfos, branch).replace(
+                    /^http(s)?\:\/\/([a-z]+\-wiki\-cn)/,
+                    "https://$2"
+                );
+
+                return `${user.name} (#${
+                    user.statistics.rank
+                })\n总分：${userTotalRating}   总页面数：${userPageCount}   平均分：${(
+                    userTotalRating / userPageCount
+                ).toFixed(2)}${userAuthorPageUrl == "" ? "" : `\n作者页：${userAuthorPageUrl}`}`;
             }
-        }
 
-        return author;
-    }
-
-    async function cromApiRequest(titleQuery: any, baseUrl: string, endpointIndex: number, queryString: string) {
-        const response = await fetch(apiList[endpointIndex], {
-            method: "POST",
-            headers: new Headers({
-                "Content-Type": "application/json"
-            }),
-            body: JSON.stringify({
-                query: queryString,
-                variables: {
-                    query: titleQuery,
-                    anyBaseUrl: (baseUrl != "" ? baseUrl : null),
-                    baseUrl: baseUrl,
-                    rank: titleQuery
+            function authorpageOutput(
+                authorInfos:
+                    | UserQuery["searchUsers"][0]["authorInfos"]
+                    | UserRankQuery["usersByRank"][0]["authorInfos"],
+                branch: string
+            ): string {
+                if (authorInfos.length == 0) {
+                    return "";
                 }
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error("Got status code: " + response.status);
-        }
-
-        const {
-            data,
-            errors
-        } = await response.json();
-
-        if (errors && errors.length > 0) {
-            if (endpointIndex++ < apiList.length) {
-                cromApiRequest(titleQuery, baseUrl, endpointIndex, queryString);
-            } else {
-                throw new Error("Got errors: " + JSON.stringify(errors));
+                for (let i = 0; i < authorInfos.length; i++) {
+                    if (
+                        authorInfos[i].site.split(":")[1] == branch.split(":")[1] &&
+                        authorInfos[i].authorPage.translationOf == null
+                    ) {
+                        return authorInfos[i].authorPage.url;
+                    }
+                }
+                for (let i = 0; i < authorInfos.length; i++) {
+                    if (authorInfos[i].authorPage.translationOf == null) {
+                        return authorInfos[i].authorPage.url;
+                    }
+                }
+                return "";
             }
         }
+    );
 
-        return data;
-    }
+    ctx.command("search <标题:string> [分部名称:string]", "查询文章信息。\n默认搜索后室中文站。", { authority: 0 }).alias("搜索").alias("搜").alias("sr").action(
+        async (_: Argv, title: string, branch: string | undefined): Promise<string> => {
+            let branchUrl: string = branch ? branchInfo[branch]["url"] : branchInfo["cn"]["url"];
+            let a = await cromApiRequest(title, branchUrl, 0, titleQueryString);
+            console.log(a);
+
+            return titleProceed(a);
+
+            function titleProceed(title: TitleQuery): string {
+                if (title.searchPages.length == 0) {
+                    return "未找到文章。";
+                }
+                let article: TitleQuery["searchPages"][0] = title.searchPages[0];
+                let articleRating: TitleQuery["searchPages"][0]["wikidotInfo"]["rating"] =
+                    article.wikidotInfo.rating;
+                let articleVoteCount: TitleQuery["searchPages"][0]["wikidotInfo"]["voteCount"] =
+                    article.wikidotInfo.voteCount;
+                return `${article.wikidotInfo.title}${
+                    article.alternateTitles.length != 0
+                        ? " - " + article.alternateTitles[0].title
+                        : ""
+                }\n评分：${articleRating} (+${
+                    articleVoteCount - (articleVoteCount - articleRating) / 2
+                }, -${(articleVoteCount - articleRating) / 2})\n${authorOutput(
+                    article,
+                    article.translationOf != null ? true : false
+                )}\n${article.url.replace(/^http(s)?\:\/\/([a-z]+\-wiki\-cn)/, "https://$2")}`;
+            }
+
+            function authorOutput(
+                article: TitleQuery["searchPages"][0],
+                isTranslation: boolean
+            ): string {
+                let author: string = "";
+                isTranslation ? (author += "译者：") : (author += "作者：");
+                for (let i = 0; i < article.attributions.length; i++) {
+                    author += article.attributions[i].user.name;
+                    if (i != article.attributions.length - 1) {
+                        author += "、";
+                    }
+                }
+                if (isTranslation) {
+                    author += "\t作者：";
+                    let translatedArticle: TitleQuery["searchPages"][0]["translationOf"] =
+                        article.translationOf;
+                    for (let i = 0; i < translatedArticle.attributions.length; i++) {
+                        author += translatedArticle.attributions[i].user.name;
+                        if (i != translatedArticle.attributions.length - 1) {
+                            author += "、";
+                        }
+                    }
+                }
+
+                return author;
+            }
+        }
+    );
 }
