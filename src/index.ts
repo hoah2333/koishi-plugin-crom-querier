@@ -13,6 +13,10 @@ export const Config: Schema<Config> = Schema.object({});
 export function apply(ctx: Context): void {
     ctx.command("author <作者:string> [分部名称:string]", "查询作者信息。\n默认搜索后室中文站。", { authority: 0 }).alias("作者").alias("作").alias("au").action(
         async (_: Argv, author: string, branch: string | undefined): Promise<string> => {
+            if (!Object.keys(branchInfo).includes(branch)) {
+                return "格式错误，请检查输入格式。";
+            }
+
             let authorRankQueryReg: RegExp = new RegExp("([^&\n]*)#[0-9]{1,15}");
             let branchUrl: string = branch ? branchInfo[branch]["url"] : branchInfo["cn"]["url"];
 
@@ -89,6 +93,10 @@ export function apply(ctx: Context): void {
 
     ctx.command("search <标题:string> [分部名称:string]", "查询文章信息。\n默认搜索后室中文站。", { authority: 0 }).alias("搜索").alias("搜").alias("sr").action(
         async (_: Argv, title: string, branch: string | undefined): Promise<string> => {
+            if (!Object.keys(branchInfo).includes(branch)) {
+                return "格式错误，请检查输入格式。";
+            }
+
             let branchUrl: string = branch ? branchInfo[branch]["url"] : branchInfo["cn"]["url"];
             let a = await cromApiRequest(title, branchUrl, 0, titleQueryString);
             console.log(a);
