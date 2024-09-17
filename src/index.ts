@@ -122,15 +122,13 @@ export function apply(ctx: Context): void {
         .alias("搜")
         .alias("sr")
         .action(async (_: Argv, title: string, branch: string | undefined): Promise<string> => {
-            if (!Object.keys(branchInfo).includes(branch)) {
+            if (branch != undefined && !Object.keys(branchInfo).includes(branch)) {
                 return "格式错误，请检查输入格式。";
             }
 
             let branchUrl: string = branch ? branchInfo[branch]["url"] : branchInfo["cn"]["url"];
-            let a = await cromApiRequest(title, branchUrl, 0, titleQueryString);
-            console.log(a);
 
-            return titleProceed(a);
+            return titleProceed(await cromApiRequest(title, branchUrl, 0, titleQueryString));
 
             function titleProceed(title: TitleQuery): string {
                 if (title.searchPages.length == 0) {
