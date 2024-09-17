@@ -260,7 +260,7 @@ export async function cromApiRequest(
                 query: titleQuery,
                 anyBaseUrl: baseUrl != "" ? baseUrl : null,
                 baseUrl: baseUrl,
-                rank: titleQuery
+                rank: parseInt(titleQuery.replace(/#([0-9]{1,15})/, "$1"))
             }
         })
     });

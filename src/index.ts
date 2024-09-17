@@ -11,13 +11,18 @@ export interface Config {}
 export const Config: Schema<Config> = Schema.object({});
 
 export function apply(ctx: Context): void {
-    ctx.command("author <作者:string> [分部名称:string]", "查询作者信息。\n默认搜索后室中文站。", { authority: 0 }).alias("作者").alias("作").alias("au").action(
-        async (_: Argv, author: string, branch: string | undefined): Promise<string> => {
-            if (!Object.keys(branchInfo).includes(branch)) {
+    ctx.command("author <作者:string> [分部名称:string]", "查询作者信息。\n默认搜索后室中文站。", {
+        authority: 0
+    })
+        .alias("作者")
+        .alias("作")
+        .alias("au")
+        .action(async (_: Argv, author: string, branch: string | undefined): Promise<string> => {
+            if (branch != undefined && !Object.keys(branchInfo).includes(branch)) {
                 return "格式错误，请检查输入格式。";
             }
 
-            let authorRankQueryReg: RegExp = new RegExp("([^&\n]*)#[0-9]{1,15}");
+            let authorRankQueryReg: RegExp = new RegExp("#[0-9]{1,15}");
             let branchUrl: string = branch ? branchInfo[branch]["url"] : branchInfo["cn"]["url"];
 
             return userProceed(
@@ -52,10 +57,11 @@ export function apply(ctx: Context): void {
                 )[0];
                 let userTotalRating: number = user.statistics.totalRating;
                 let userPageCount: number = user.statistics.pageCount;
-                let userAuthorPageUrl: string = authorpageOutput(user.authorInfos, branch).replace(
-                    /^http(s)?\:\/\/([a-z]+\-wiki\-cn)/,
-                    "https://$2"
-                );
+                let userAuthorPageUrl: string = authorpageOutput(
+                    user.name,
+                    user.authorInfos,
+                    branch
+                ).replace(/^http(s)?\:\/\/([a-z]+\-wiki\-cn)/, "https://$2");
 
                 return `${user.name} (#${
                     user.statistics.rank
@@ -65,34 +71,57 @@ export function apply(ctx: Context): void {
             }
 
             function authorpageOutput(
-                authorInfos:
-                    | UserQuery["searchUsers"][0]["authorInfos"]
-                    | UserRankQuery["usersByRank"][0]["authorInfos"],
+                author: string,
+                authorInfos: UserQuery["searchUsers"][0]["authorInfos"],
                 branch: string
             ): string {
                 if (authorInfos.length == 0) {
                     return "";
                 }
-                for (let i = 0; i < authorInfos.length; i++) {
-                    if (
-                        authorInfos[i].site.split(":")[1] == branch.split(":")[1] &&
-                        authorInfos[i].authorPage.translationOf == null
-                    ) {
-                        return authorInfos[i].authorPage.url;
+                authorInfos = authorInfos.filter(
+                    (info: UserQuery["searchUsers"][0]["authorInfos"][0]): boolean => {
+                        return (
+                            info.authorPage.translationOf == null &&
+                            !info.authorPage.url.includes("old:") &&
+                            !info.authorPage.url.includes("deleted:")
+                        );
                     }
+                );
+                let filterInfo: UserQuery["searchUsers"][0]["authorInfos"][0][] =
+                    authorInfos.filter(
+                        (info: UserQuery["searchUsers"][0]["authorInfos"][0]): boolean => {
+                            return info.authorPage.url.includes(author);
+                        }
+                    );
+                if (filterInfo.length != 0) {
+                    return (
+                        filterInfo.find(
+                            (info: UserQuery["searchUsers"][0]["authorInfos"][0]): boolean => {
+                                return info.site == branch;
+                            }
+                        )?.authorPage.url ?? filterInfo[0]?.authorPage.url
+                    );
+                } else {
+                    return (
+                        authorInfos.find(
+                            (info: UserQuery["searchUsers"][0]["authorInfos"][0]): boolean => {
+                                return info.site == branch;
+                            }
+                        )?.authorPage.url ??
+                        authorInfos[0]?.authorPage.url ??
+                        ""
+                    );
                 }
-                for (let i = 0; i < authorInfos.length; i++) {
-                    if (authorInfos[i].authorPage.translationOf == null) {
-                        return authorInfos[i].authorPage.url;
-                    }
-                }
-                return "";
             }
-        }
-    );
+        });
 
-    ctx.command("search <标题:string> [分部名称:string]", "查询文章信息。\n默认搜索后室中文站。", { authority: 0 }).alias("搜索").alias("搜").alias("sr").action(
-        async (_: Argv, title: string, branch: string | undefined): Promise<string> => {
+    ctx.command("search <标题:string> [分部名称:string]", "查询文章信息。\n默认搜索后室中文站。", {
+        authority: 0
+    })
+        .alias("搜索")
+        .alias("搜")
+        .alias("sr")
+        .action(async (_: Argv, title: string, branch: string | undefined): Promise<string> => {
             if (!Object.keys(branchInfo).includes(branch)) {
                 return "格式错误，请检查输入格式。";
             }
@@ -150,6 +179,5 @@ export function apply(ctx: Context): void {
 
                 return author;
             }
-        }
-    );
+        });
 }
