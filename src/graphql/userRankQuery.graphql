@@ -1,0 +1,24 @@
+query userRankQuery($rank: Int!, $anyBaseUrl: [String!], $baseUrl: String!) {
+    usersByRank(rank: $rank, filter: { anyBaseUrl: $anyBaseUrl }) {
+        name
+        wikidotInfo {
+            displayName
+            wikidotId
+            unixName
+        }
+        authorInfos {
+            site
+            authorPage {
+                translationOf {
+                    url
+                }
+                url
+            }
+        }
+        statistics(baseUrl: $baseUrl) {
+            rank
+            totalRating
+            pageCount
+        }
+    }
+}

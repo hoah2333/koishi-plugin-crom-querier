@@ -1,0 +1,24 @@
+query userQuery($query: String!, $anyBaseUrl: [String!], $baseUrl: String!) {
+    searchUsers(query: $query, filter: { anyBaseUrl: $anyBaseUrl }) {
+        name
+        wikidotInfo {
+            displayName
+            wikidotId
+            unixName
+        }
+        authorInfos {
+            site
+            authorPage {
+                translationOf {
+                    url
+                }
+                url
+            }
+        }
+        statistics(baseUrl: $baseUrl) {
+            rank
+            totalRating
+            pageCount
+        }
+    }
+}

@@ -1,0 +1,27 @@
+query titleQuery($query: String!, $anyBaseUrl: [String!]) {
+    searchPages(query: $query, filter: { anyBaseUrl: $anyBaseUrl }) {
+        url
+        wikidotInfo {
+            title
+            rating
+            voteCount
+            createdAt
+        }
+        alternateTitles {
+            title
+        }
+        translationOf {
+            url
+            attributions {
+                user {
+                    name
+                }
+            }
+        }
+        attributions {
+            user {
+                name
+            }
+        }
+    }
+}

@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-crom-querier",
   "description": "向crom查询并返回文本的插件，自用",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -21,5 +21,8 @@
   ],
   "peerDependencies": {
     "koishi": "^4.16.6"
+  },
+  "dependencies": {
+    "graphql-tag": "^2.12.6"
   }
 }
