@@ -1,4 +1,4 @@
-export let titleQueryString: string = `
+export const titleQueryString: string = `
         query titleQuery($query: String!, $anyBaseUrl: [String!]) {
             searchPages(query: $query, filter: {anyBaseUrl: $anyBaseUrl}) {
                 url
@@ -27,35 +27,8 @@ export let titleQueryString: string = `
             }
         }
     `;
-export interface TitleQuery {
-    searchPages: {
-        url: string;
-        wikidotInfo: {
-            title: string;
-            rating: number;
-            voteCount: number;
-            createdAt: Date;
-        };
-        alternateTitles: {
-            title: string;
-        }[];
-        translationOf: {
-            url: string;
-            attributions: {
-                user: {
-                    name: string;
-                };
-            }[];
-        } | null;
-        attributions: {
-            user: {
-                name: string;
-            };
-        }[];
-    }[];
-}
 
-export let userQueryString: string = `
+export const userQueryString: string = `
         query userQuery($query: String!, $anyBaseUrl: [String!], $baseUrl: String!) {
             searchUsers(query: $query, filter: {anyBaseUrl: $anyBaseUrl}) {
                 name
@@ -81,32 +54,8 @@ export let userQueryString: string = `
             }
         }
     `;
-export interface UserQuery {
-    searchUsers: {
-        name: string;
-        wikidotInfo: {
-            displayName: string;
-            wikidotId: number;
-            unixName: string;
-        };
-        authorInfos: {
-            site: string;
-            authorPage: {
-                translationOf: {
-                    url: string;
-                } | null;
-                url: string;
-            };
-        }[];
-        statistics: {
-            rank: number;
-            totalRating: number;
-            pageCount: number;
-        };
-    }[];
-}
 
-export let userRankQueryString: string = `
+export const userRankQueryString: string = `
         query userRankQuery($rank: Int!, $anyBaseUrl: [String!], $baseUrl: String!) {
             usersByRank(rank: $rank, filter: {anyBaseUrl: $anyBaseUrl}) {
                 name
@@ -132,34 +81,77 @@ export let userRankQueryString: string = `
             }
         }
     `;
-export interface UserRankQuery {
-    usersByRank: {
-        name: string;
-        wikidotInfo: {
-            displayName: string;
-            wikidotId: number;
-            unixName: string;
-        };
-        authorInfos: {
-            site: string;
-            authorPage: {
-                translationOf: {
-                    url: string;
-                } | null;
-                url: string;
-            };
-        }[];
-        statistics: {
-            rank: number;
-            totalRating: number;
-            pageCount: number;
-        };
-    }[];
+
+export interface UserWikidotInfo {
+    displayName: string;
+    wikidotId: number;
+    unixName: string;
 }
 
-let apiList: string[] = ["https://api.crom.avn.sh/graphql", "https://zh.xjo.ch/crom/graphql"];
+export interface AuthorInfo {
+    site: string;
+    authorPage: {
+        translationOf: {
+            url: string;
+        } | null;
+        url: string;
+    };
+}
 
-export let branchInfo: Record<string, { url: string }> = {
+export interface Statistics {
+    rank: number;
+    totalRating: number;
+    pageCount: number;
+}
+
+export interface User {
+    name: string;
+    wikidotInfo: UserWikidotInfo;
+    authorInfos: AuthorInfo[];
+    statistics: Statistics;
+}
+
+export interface UserQuery {
+    searchUsers: User[];
+}
+
+export interface UserRankQuery {
+    usersByRank: User[];
+}
+
+export interface Attribution {
+    user: {
+        name: string;
+    };
+}
+
+export interface TitleWikidotInfo {
+    title: string;
+    rating: number;
+    voteCount: number;
+    createdAt: Date;
+}
+
+export interface Title {
+    url: string;
+    wikidotInfo: TitleWikidotInfo;
+    alternateTitles: {
+        title: string;
+    }[];
+    translationOf: {
+        url: string;
+        attributions: Attribution[];
+    } | null;
+    attributions: Attribution[];
+}
+
+export interface TitleQuery {
+    searchPages: Title[];
+}
+
+const apiList: string[] = ["https://api.crom.avn.sh/graphql", "https://zh.xjo.ch/crom/graphql"];
+
+export const branchInfo: Record<string, { url: string }> = {
     cn: {
         url: "http://backrooms-wiki-cn.wikidot.com"
     },
@@ -237,6 +229,9 @@ export let branchInfo: Record<string, { url: string }> = {
     },
     "scp-vn": {
         url: "http://scp-vn.wikidot.com"
+    },
+    na: {
+        url: "http://nationarea.wikidot.com"
     },
     all: {
         url: ""
