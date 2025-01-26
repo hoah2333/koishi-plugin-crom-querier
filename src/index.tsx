@@ -30,8 +30,8 @@ function validateBranch(branch: string | undefined): string | undefined {
 // 添加URL处理函数
 function normalizeUrl(url: string): string {
     return url
-        .replace(/^http(s)?\:\/\/backrooms-wiki-cn.wikidot.com/, "https://backroomswiki.cn")
-        .replace(/^http(s)?\:\/\/([a-z]+\-wiki\-cn)/, "https://$2");
+        .replace(/^https?\:\/\/backrooms-wiki-cn.wikidot.com/, "https://backroomswiki.cn")
+        .replace(/^https?\:\/\/([a-z]+\-wiki\-cn|nationarea)/, "https://$1");
 }
 
 export function apply(ctx: Context): void {
@@ -82,11 +82,18 @@ export function apply(ctx: Context): void {
                     authorpageOutput(user.name, user.authorInfos, branch)
                 );
 
-                return `${user.name} (#${
-                    user.statistics.rank
-                })\n总分：${userTotalRating}   总页面数：${userPageCount}   平均分：${(
-                    userTotalRating / userPageCount
-                ).toFixed(2)}${userAuthorPageUrl == "" ? "" : `\n作者页：${userAuthorPageUrl}`}`;
+                return (
+                    <>
+                        <p>
+                            {user.name} (#{user.statistics.rank})
+                        </p>
+                        <p>
+                            总分：{userTotalRating}&emsp;总页面数：{userPageCount}&emsp;平均分：
+                            {(userTotalRating / userPageCount).toFixed(2)}
+                        </p>
+                        {userAuthorPageUrl && <p>作者页：{userAuthorPageUrl}</p>}
+                    </>
+                );
             }
 
             function authorpageOutput(
@@ -133,7 +140,7 @@ export function apply(ctx: Context): void {
 
             function titleProceed(title: TitleQuery): string {
                 if (title.searchPages.length == 0) {
-                    return "未找到文章。";
+                    return <>未找到文章。</>;
                 }
 
                 const article: Title = title.searchPages[0];
@@ -141,14 +148,23 @@ export function apply(ctx: Context): void {
                 const positiveVotes: number = (voteCount + rating) / 2;
                 const negativeVotes: number = (voteCount - rating) / 2;
 
-                const alternateTitle: string = article.alternateTitles.length
-                    ? ` - ${article.alternateTitles[0].title}`
-                    : "";
+                const alternateTitle: string | null = article.alternateTitles.length
+                    ? <> - {article.alternateTitles[0].title}</>
+                    : null;
 
-                return `${article.wikidotInfo.title}${alternateTitle}
-评分：${rating} (+${positiveVotes}, -${negativeVotes})
-${authorOutput(article, Boolean(article.translationOf))}
-${normalizeUrl(article.url)}`;
+                return (
+                    <>
+                        <p>
+                            {article.wikidotInfo.title}
+                            {alternateTitle}
+                        </p>
+                        <p>
+                            评分：{rating} (+{positiveVotes}, -{negativeVotes})
+                        </p>
+                        <p>{authorOutput(article, Boolean(article.translationOf))}</p>
+                        <p>{normalizeUrl(article.url)}</p>
+                    </>
+                );
             }
 
             function authorOutput(article: Title, isTranslation: boolean): string {
@@ -158,14 +174,24 @@ ${normalizeUrl(article.url)}`;
                     .join("、");
 
                 if (!isTranslation) {
-                    return `${prefix}${authors}`;
+                    return (
+                        <>
+                            {prefix}
+                            {authors}
+                        </>
+                    );
                 }
 
                 const originalAuthors: string = article.translationOf.attributions
                     .map((attr: Attribution): string => attr.user.name)
                     .join("、");
 
-                return `${prefix}${authors}\t作者：${originalAuthors}`;
+                return (
+                    <>
+                        {prefix}
+                        {authors}&emsp;作者：{originalAuthors}
+                    </>
+                );
             }
         });
 }
