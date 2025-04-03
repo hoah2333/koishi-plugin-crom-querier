@@ -1,66 +1,55 @@
 export interface UserWikidotInfo {
-    displayName: string;
-    wikidotId: number;
-    unixName: string;
+  displayName: string;
+  wikidotId: number;
+  unixName: string;
 }
 
 export interface AuthorInfo {
-    site: string;
-    authorPage: {
-        translationOf: {
-            url: string;
-        } | null;
-        url: string;
-    };
+  site: string;
+  authorPage: { translationOf: { url: string } | null; url: string };
 }
 
 export interface Statistics {
-    rank: number;
-    totalRating: number;
-    pageCount: number;
+  rank: number;
+  totalRating: number;
+  pageCount: number;
 }
 
 export interface User {
-    name: string;
-    wikidotInfo: UserWikidotInfo;
-    authorInfos: AuthorInfo[];
-    statistics: Statistics;
+  name: string;
+  wikidotInfo: UserWikidotInfo;
+  authorInfos: AuthorInfo[];
+  statistics: Statistics;
 }
 
 export interface UserQuery {
-    searchUsers: User[];
+  searchUsers: User[];
 }
 
 export interface UserRankQuery {
-    usersByRank: User[];
+  usersByRank: User[];
 }
 
 export interface Attribution {
-    user: {
-        name: string;
-    };
+  user: { name: string };
 }
 
 interface TitleWikidotInfo {
-    title: string;
-    rating: number;
-    voteCount: number;
-    createdAt: Date;
+  title: string;
+  rating: number;
+  voteCount: number;
+  createdAt: Date;
+  tags: string[];
 }
 
 export interface Title {
-    url: string;
-    wikidotInfo: TitleWikidotInfo;
-    alternateTitles: {
-        title: string;
-    }[];
-    translationOf: {
-        url: string;
-        attributions: Attribution[];
-    } | null;
-    attributions: Attribution[];
+  url: string;
+  wikidotInfo: TitleWikidotInfo;
+  alternateTitles: { title: string }[];
+  translationOf: { url: string; attributions: Attribution[] } | null;
+  attributions: Attribution[];
 }
 
 export interface TitleQuery {
-    searchPages: Title[];
+  searchPages: Title[];
 }
