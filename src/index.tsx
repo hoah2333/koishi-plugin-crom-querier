@@ -19,45 +19,34 @@ export const Config: Schema<Config> = Schema.object({
   bannedTags: Schema.array(Schema.string()).description("禁止查询的标签列表"),
 }).description("禁止查询配置");
 
-function validateBranch(branch: string | undefined): string | undefined {
-  return branch && !Object.keys(branchInfo).includes(branch) ? "格式错误，请检查输入格式。" : undefined;
-}
-
-function normalizeUrl(url: string): string {
-  return url
-    .replace(/^https?:\/\/backrooms-wiki-cn.wikidot.com/, "https://backroomswiki.cn")
-    .replace(/^https?:\/\/([a-z]+-wiki-cn|nationarea)/, "https://$1");
-}
-
-function getBranchUrl(branch: string | undefined): string {
-  return branch ? branchInfo[branch].url : branchInfo.cn.url;
-}
-
-function handleCommandPrerequisites(branch: string | undefined): { error?: string; branchUrl?: string } {
-  const branchError: string = validateBranch(branch);
-  if (branchError) return { error: branchError };
-  return { branchUrl: getBranchUrl(branch) };
-}
-
 export function apply(ctx: Context, config: Config): void {
   const titleQueryString: string = queries.titleQuery.loc?.source.body;
   const userQueryString: string = queries.userQuery.loc?.source.body;
   const userRankQueryString: string = queries.userRankQuery.loc?.source.body;
+
+  const normalizeUrl = (url: string): string =>
+    url
+      .replace(/^https?:\/\/backrooms-wiki-cn.wikidot.com/, "https://backroomswiki.cn")
+      .replace(/^https?:\/\/([a-z]+-wiki-cn|nationarea)/, "https://$1");
+  
+  const getBranchUrl = (branch: string | undefined): string =>
+    branch && Object.keys(branchInfo).includes(branch) ? branchInfo[branch].url : branchInfo.cn.url;
 
   ctx
     .command("author <作者:string> [分部名称:string]", "查询作者信息。\n默认搜索后室中文站。")
     .alias("作者")
     .alias("作")
     .alias("au")
-    .action(async (_: Argv, author: string, branch: string | undefined): Promise<string> => {
-      const { error, branchUrl } = handleCommandPrerequisites(branch);
-      if (error) return error;
+    .action(async (argv: Argv, author: string, branch: string | undefined): Promise<string> => {
+      const branchUrl = getBranchUrl(branch);
 
       const isRankQuery: boolean = /^#[0-9]{1,15}$/.test(author);
       const queryString: string = isRankQuery ? userRankQueryString : userQueryString;
 
+      const authorName: string = branch && !Object.keys(branchInfo).includes(branch) ? argv.args.join(" ") : author;
+
       try {
-        const result = await cromApiRequest(author, branchUrl, 0, queryString);
+        const result = await cromApiRequest(authorName, branchUrl, 0, queryString);
         return userProceed(result, branchUrl, isRankQuery);
       } catch (err) {
         return `查询失败: ${err.message || "未知错误"}`;
@@ -134,52 +123,38 @@ export function apply(ctx: Context, config: Config): void {
     .alias("搜索")
     .alias("搜")
     .alias("sr")
-    .action(async (_: Argv, title: string, branch: string | undefined): Promise<string> => {
-      const { error, branchUrl } = handleCommandPrerequisites(branch);
-      if (error) return error;
+    .action(async (argv: Argv, title: string, branch: string | undefined): Promise<string> => {
+      const branchUrl = getBranchUrl(branch);
+
+      const titleName: string = branch && !Object.keys(branchInfo).includes(branch) ? argv.args.join(" ") : title;
 
       try {
-        const result = await cromApiRequest(title, branchUrl, 0, titleQueryString);
+        const result = await cromApiRequest(titleName, branchUrl, 0, titleQueryString);
         return titleProceed(result);
       } catch (err) {
-        return <>查询失败：{err.message || "未知错误"}</>;
+        return `查询失败：${err.message || "未知错误"}`;
       }
 
       function authorOutput(article: Title, isTranslation: boolean): string {
         const prefix: string = isTranslation ? "译者：" : "作者：";
 
-        if (!article.attributions) return <>{prefix}未知</>;
+        if (!article.attributions) return `${prefix} 未知`;
 
         const authors: string = article.attributions.map((attr: Attribution): string => attr.user.name).join("、");
 
         if (!isTranslation) {
-          return (
-            <>
-              {prefix}
-              {authors}
-            </>
-          );
+          return `${prefix} ${authors}`;
         }
 
         if (!article.translationOf || !article.translationOf.attributions) {
-          return (
-            <>
-              {prefix}
-              {authors}&emsp;作者：未知
-            </>
-          );
+          return `${prefix} ${authors} 作者：未知`;
         }
 
         const originalAuthors: string = article.translationOf.attributions
           .map((attr: Attribution): string => attr.user.name)
           .join("、");
 
-        return (
-          <>
-            {prefix}
-            {authors}&emsp;作者：{originalAuthors}
-          </>
-        );
+        return `${prefix} ${authors} 作者：${originalAuthors}`;
       }
 
       function titleProceed(titleData: TitleQuery): string {
