@@ -5,7 +5,21 @@ import { branchInfo, cromApiRequest } from "./lib";
 import type { Argv } from "koishi";
 import type { Attribution, AuthorInfo, Title, TitleQuery, User, UserQuery, UserRankQuery } from "./types";
 
+declare module "koishi" {
+  interface Tables {
+    cromQuerier: CromQuerierTable;
+  }
+}
+
+interface CromQuerierTable {
+  id?: number;
+  platform: string;
+  defaultBranch: string;
+}
+
 export const name: string = "crom-querier";
+
+export const inject: string[] = ["database"];
 
 export interface Config {
   bannedUsers: string[];
@@ -20,6 +34,7 @@ export const Config: Schema<Config> = Schema.object({
 }).description("禁止查询配置");
 
 export function apply(ctx: Context, config: Config): void {
+  ctx.model.extend("cromQuerier", { id: "unsigned", platform: "string(64)", defaultBranch: "string(64)" });
   const titleQueryString: string = queries.titleQuery.loc?.source.body;
   const userQueryString: string = queries.userQuery.loc?.source.body;
   const userRankQueryString: string = queries.userRankQuery.loc?.source.body;
@@ -28,9 +43,31 @@ export function apply(ctx: Context, config: Config): void {
     url
       .replace(/^https?:\/\/backrooms-wiki-cn.wikidot.com/, "https://backroomswiki.cn")
       .replace(/^https?:\/\/([a-z]+-wiki-cn|nationarea)/, "https://$1");
-  
-  const getBranchUrl = (branch: string | undefined): string =>
-    branch && Object.keys(branchInfo).includes(branch) ? branchInfo[branch].url : branchInfo.cn.url;
+
+  const getBranchUrl = async (branch: string | undefined, platform: string): Promise<string> => {
+    const branchUrls: CromQuerierTable[] = await ctx.database.get("cromQuerier", { platform });
+    if (branch && Object.keys(branchInfo).includes(branch)) {
+      return branchInfo[branch].url;
+    } else if (branchUrls.length > 0) {
+      return branchInfo[branchUrls[0].defaultBranch].url;
+    } else {
+      return branchInfo.cn.url;
+    }
+  };
+
+  ctx
+    .command("default-branch <分部名称:string>", "设置默认分部。")
+    .alias("默认分部")
+    .alias("默认")
+    .alias("db")
+    .action(async (argv: Argv, branch: string): Promise<string> => {
+      const platform: string = argv.session.event.platform;
+      if (branch && (!Object.keys(branchInfo).includes(branch) || branch === "all")) {
+        return "分部名称不正确。";
+      }
+      ctx.database.upsert("cromQuerier", [{ platform, defaultBranch: branch }], "platform");
+      return `已将本群默认查询分部设置为: ${branch}`;
+    });
 
   ctx
     .command("author <作者:string> [分部名称:string]", "查询作者信息。\n默认搜索后室中文站。")
@@ -38,7 +75,7 @@ export function apply(ctx: Context, config: Config): void {
     .alias("作")
     .alias("au")
     .action(async (argv: Argv, author: string, branch: string | undefined): Promise<string> => {
-      const branchUrl = getBranchUrl(branch);
+      const branchUrl = await getBranchUrl(branch, argv.session.event.platform);
 
       const isRankQuery: boolean = /^#[0-9]{1,15}$/.test(author);
       const queryString: string = isRankQuery ? userRankQueryString : userQueryString;
@@ -79,6 +116,7 @@ export function apply(ctx: Context, config: Config): void {
 
         return (
           <>
+            <quote id={argv.session.event.message.id} />
             <p>
               {user.name} (#{user.statistics.rank})
             </p>
@@ -124,7 +162,7 @@ export function apply(ctx: Context, config: Config): void {
     .alias("搜")
     .alias("sr")
     .action(async (argv: Argv, title: string, branch: string | undefined): Promise<string> => {
-      const branchUrl = getBranchUrl(branch);
+      const branchUrl = await getBranchUrl(branch, argv.session.event.platform);
 
       const titleName: string = branch && !Object.keys(branchInfo).includes(branch) ? argv.args.join(" ") : title;
 
@@ -189,6 +227,7 @@ export function apply(ctx: Context, config: Config): void {
 
         return (
           <>
+            <quote id={argv.session.event.message.id} />
             <p>
               {article.wikidotInfo.title}
               {alternateTitle}
