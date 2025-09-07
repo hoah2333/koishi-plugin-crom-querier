@@ -48,12 +48,14 @@ export function apply(ctx: Context, config: Config): void {
 
   const normalizeUrl = (url: string): string =>
     url
-      .replace(/^https?:\/\/backrooms-wiki-cn.wikidot.com/, "https://backroomswiki.cn")
+      .replace(/^https?:\/\/backrooms-wiki-cn.wikidot.com/, "https://brcn.backroomswiki.cn")
+      .replace(/^https?:\/\/scp-wiki-cn.wikidot.com/, "https://scpcn.backroomswiki.cn")
       .replace(/^https?:\/\/([a-z]+-wiki-cn|nationarea)/, "https://$1");
 
-  const getBranchUrl = async (branch: string | undefined, event: Event): Promise<string> => {
-    const platform: string = event.platform;
-    const channelId: string = event.channel.id;
+  const getBranchUrl = async (
+    branch: string | undefined,
+    { platform, channel: { id: channelId } }: Event,
+  ): Promise<string> => {
     const branchUrls: CromQuerierTable[] = await ctx.database.get("cromQuerier", { platform, channelId });
     if (branch && Object.keys(branchInfo).includes(branch)) {
       return branchInfo[branch].url;
