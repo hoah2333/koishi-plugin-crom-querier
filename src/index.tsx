@@ -54,10 +54,13 @@ export function apply(ctx: Context, config: Config): void {
 
   const getBranchUrl = async (
     branch: string | undefined,
+    lastStr: string | undefined,
     { platform, channel: { id: channelId } }: Event,
   ): Promise<string> => {
     const branchUrls: CromQuerierTable[] = await ctx.database.get("cromQuerier", { platform, channelId });
-    if (branch && Object.keys(branchInfo).includes(branch)) {
+    if (Object.keys(branchInfo).includes(lastStr)) {
+      return branchInfo[lastStr].url;
+    } else if (branch && Object.keys(branchInfo).includes(branch)) {
       return branchInfo[branch].url;
     } else if (branchUrls.length > 0) {
       return branchInfo[branchUrls[0].defaultBranch].url;
@@ -88,12 +91,17 @@ export function apply(ctx: Context, config: Config): void {
     .alias("au")
     .action(
       async (argv: Argv, author: string, branch: string | undefined): Promise<JSX.IntrinsicElements["template"]> => {
-        const branchUrl: string = await getBranchUrl(branch, argv.session.event);
+        const branchUrl: string = await getBranchUrl(branch, argv.args.at(-1), argv.session.event);
 
         const isRankQuery: boolean = /^#[0-9]{1,15}$/.test(author);
         const queryString: string = isRankQuery ? userRankQueryString : userQueryString;
 
-        const authorName: string = branch && !Object.keys(branchInfo).includes(branch) ? argv.args.join(" ") : author;
+        const authorName: string =
+          (branch && !Object.keys(branchInfo).includes(branch)) || !author ?
+            Object.keys(branchInfo).includes(argv.args.at(-1)) ?
+              argv.args.slice(0, -1).join(" ")
+            : argv.args.join(" ")
+          : author;
 
         const authorpageOutput = (author: string, authorInfos: AuthorInfo[], branch: string): string => {
           if (!authorInfos || authorInfos.length === 0) {
@@ -183,9 +191,13 @@ export function apply(ctx: Context, config: Config): void {
     .alias("sr")
     .action(
       async (argv: Argv, title: string, branch: string | undefined): Promise<JSX.IntrinsicElements["template"]> => {
-        const branchUrl = await getBranchUrl(branch, argv.session.event);
-
-        const titleName: string = branch && !Object.keys(branchInfo).includes(branch) ? argv.args.join(" ") : title;
+        const branchUrl = await getBranchUrl(branch, argv.args.at(-1), argv.session.event);
+        const titleName: string =
+          (branch && !Object.keys(branchInfo).includes(branch)) || !title ?
+            Object.keys(branchInfo).includes(argv.args.at(-1)) ?
+              argv.args.slice(0, -1).join(" ")
+            : argv.args.join(" ")
+          : title;
 
         const Author = ({
           article,
@@ -203,7 +215,8 @@ export function apply(ctx: Context, config: Config): void {
           if (!isTranslation) {
             return (
               <template>
-                {prefix} {authors}
+                {prefix}
+                {authors}
               </template>
             );
           }
@@ -211,7 +224,8 @@ export function apply(ctx: Context, config: Config): void {
           if (!article.translationOf || !article.translationOf.attributions) {
             return (
               <template>
-                {prefix} {authors} 作者：未知
+                {prefix}
+                {authors} 作者：未知
               </template>
             );
           }
@@ -222,7 +236,8 @@ export function apply(ctx: Context, config: Config): void {
 
           return (
             <template>
-              {prefix} {authors} 作者：{originalAuthors}
+              {prefix}
+              {authors} 作者：{originalAuthors}
             </template>
           );
         };
