@@ -42,9 +42,6 @@ export function apply(ctx: Context, config: Config): void {
     channelId: "string(64)",
     defaultBranch: "string(64)",
   });
-  const titleQueryString: string = queries.titleQuery.loc?.source.body;
-  const userQueryString: string = queries.userQuery.loc?.source.body;
-  const userRankQueryString: string = queries.userRankQuery.loc?.source.body;
 
   const normalizeUrl = (url: string): string =>
     url
@@ -94,7 +91,7 @@ export function apply(ctx: Context, config: Config): void {
         const branchUrl: string = await getBranchUrl(branch, argv.args.at(-1), argv.session.event);
 
         const isRankQuery: boolean = /^#[0-9]{1,15}$/.test(author);
-        const queryString: string = isRankQuery ? userRankQueryString : userQueryString;
+        const queryString: string = isRankQuery ? queries.userRankQuery : queries.userQuery;
 
         const authorName: string =
           (branch && !Object.keys(branchInfo).includes(branch)) || !author ?
@@ -288,7 +285,7 @@ export function apply(ctx: Context, config: Config): void {
         };
 
         try {
-          const result = await cromApiRequest(titleName, branchUrl, 0, titleQueryString);
+          const result = await cromApiRequest(titleName, branchUrl, 0, queries.titleQuery);
           return <TitleProceed titleData={result} />;
         } catch (err) {
           return <template>查询失败：{err.message || "未知错误"}</template>;

@@ -1,4 +1,4 @@
-import { gql } from "graphql-tag";
+const gql = (query: TemplateStringsArray, ...substitutions: unknown[]): string => String.raw(query, ...substitutions);
 
 export const queries = {
   titleQuery: gql`

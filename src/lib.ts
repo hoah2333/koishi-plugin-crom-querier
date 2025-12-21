@@ -1,6 +1,6 @@
 import type { TitleQuery, UserQuery, UserRankQuery } from "./types";
 
-const apiList: string[] = ["https://api.crom.avn.sh/graphql", "https://zh.xjo.ch/crom/graphql"];
+const apiList: string[] = ["https://api.crom.avn.sh/graphql", "https://apiv1.crom.avn.sh/graphql", "https://zh.xjo.ch/crom/graphql"];
 
 export const branchInfo: Record<string, { url: string }> = {
   "cn": { url: "http://backrooms-wiki-cn.wikidot.com" },
