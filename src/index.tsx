@@ -1,9 +1,10 @@
 import { Context, Schema } from "koishi";
+import {} from "koishi-plugin-adapter-onebot";
 import { queries } from "./graphql";
 import { branchInfo, cromApiRequest } from "./lib";
 
 import type { Event } from "@satorijs/protocol";
-import type { Argv } from "koishi";
+import type { Argv, h, Session } from "koishi";
 import type { Attribution, AuthorInfo, Title, TitleQuery, User, UserQuery, UserRankQuery } from "./types";
 
 declare module "koishi" {
@@ -86,210 +87,242 @@ export function apply(ctx: Context, config: Config): void {
     .alias("作者")
     .alias("作")
     .alias("au")
-    .action(
-      async (argv: Argv, author: string, branch: string | undefined): Promise<JSX.IntrinsicElements["template"]> => {
-        const branchUrl: string = await getBranchUrl(branch, argv.args.at(-1), argv.session.event);
+    .action(async (argv: Argv, author: string, branch: string | undefined): Promise<h> => {
+      const branchUrl: string = await getBranchUrl(branch, argv.args.at(-1), argv.session.event);
 
-        const isRankQuery: boolean = /^#[0-9]{1,15}$/.test(author);
-        const queryString: string = isRankQuery ? queries.userRankQuery : queries.userQuery;
+      const isRankQuery: boolean = /^#[0-9]{1,15}$/.test(author);
+      const queryString: string = isRankQuery ? queries.userRankQuery : queries.userQuery;
 
-        const authorName: string =
-          (branch && !Object.keys(branchInfo).includes(branch)) || !author ?
-            Object.keys(branchInfo).includes(argv.args.at(-1)) ?
-              argv.args.slice(0, -1).join(" ")
-            : argv.args.join(" ")
-          : author;
+      const authorName: string =
+        (branch && !Object.keys(branchInfo).includes(branch)) || !author ?
+          Object.keys(branchInfo).includes(argv.args.at(-1)) ?
+            argv.args.slice(0, -1).join(" ")
+          : argv.args.join(" ")
+        : author;
 
-        const authorpageOutput = (author: string, authorInfos: AuthorInfo[], branch: string): string => {
-          if (!authorInfos || authorInfos.length === 0) {
-            return "";
-          }
-
-          const filteredInfos: AuthorInfo[] = authorInfos.filter(
-            (info: AuthorInfo): boolean =>
-              info.authorPage.translationOf == null &&
-              !info.authorPage.url.includes("old:") &&
-              !info.authorPage.url.includes("deleted:"),
-          );
-
-          if (filteredInfos.length === 0) return "";
-
-          const matchingAuthorInfos: AuthorInfo[] = filteredInfos.filter((info: AuthorInfo): boolean =>
-            info.authorPage.url.includes(author),
-          );
-
-          return matchingAuthorInfos.length > 0 ?
-              (matchingAuthorInfos.find((info: AuthorInfo): boolean => info.site === branch)?.authorPage.url ??
-                matchingAuthorInfos[0]?.authorPage.url)
-            : (filteredInfos.find((info: AuthorInfo): boolean => info.site === branch)?.authorPage.url ??
-                filteredInfos[0]?.authorPage.url ??
-                "");
-        };
-
-        const User = <T extends UserQuery | UserRankQuery>({
-          object,
-          branch,
-          isRank,
-        }: {
-          object: T;
-          branch: string;
-          isRank: boolean;
-        }): JSX.IntrinsicElements["template"] => {
-          const dataArray: User[] = isRank ? (object as UserRankQuery).usersByRank : (object as UserQuery).searchUsers;
-
-          if (!dataArray || dataArray.length === 0) {
-            return <template>未找到用户。</template>;
-          }
-
-          const selectedIndex: number = dataArray.findIndex(
-            (user: User): boolean => !config.bannedUsers.some((banned: string): boolean => user.name === banned),
-          );
-
-          if (selectedIndex === -1) {
-            return <template>未找到符合条件的用户。</template>;
-          }
-
-          const user: User = dataArray[selectedIndex];
-          const userTotalRating: number = user.statistics.totalRating;
-          const userPageCount: number = user.statistics.pageCount;
-          const userAuthorPageUrl: string = normalizeUrl(authorpageOutput(user.name, user.authorInfos, branch));
-          const averageRating: string = userPageCount > 0 ? (userTotalRating / userPageCount).toFixed(2) : "0.00";
-
-          return (
-            <template>
-              <quote id={argv.session.event.message.id} />
-              {user.name} (#{user.statistics.rank})
-              <br />
-              总分：{userTotalRating}&emsp;总页面数：{userPageCount}&emsp;平均分：
-              {averageRating}
-              {userAuthorPageUrl && (
-                <template>
-                  <br />
-                  作者页：{userAuthorPageUrl}
-                </template>
-              )}
-            </template>
-          );
-        };
-
-        try {
-          const result = await cromApiRequest(authorName, branchUrl, 0, queryString);
-          return <User object={result} branch={branchUrl} isRank={isRankQuery} />;
-        } catch (err) {
-          return <template>查询失败: {err.message || "未知错误"}</template>;
+      const authorpageOutput = (author: string, authorInfos: AuthorInfo[], branch: string): string => {
+        if (!authorInfos || authorInfos.length === 0) {
+          return "";
         }
-      },
-    );
+
+        const filteredInfos: AuthorInfo[] = authorInfos.filter(
+          (info: AuthorInfo): boolean =>
+            info.authorPage.translationOf == null &&
+            !info.authorPage.url.includes("old:") &&
+            !info.authorPage.url.includes("deleted:"),
+        );
+
+        if (filteredInfos.length === 0) return "";
+
+        const matchingAuthorInfos: AuthorInfo[] = filteredInfos.filter((info: AuthorInfo): boolean =>
+          info.authorPage.url.includes(author),
+        );
+
+        return matchingAuthorInfos.length > 0 ?
+            (matchingAuthorInfos.find((info: AuthorInfo): boolean => info.site === branch)?.authorPage.url ??
+              matchingAuthorInfos[0]?.authorPage.url)
+          : (filteredInfos.find((info: AuthorInfo): boolean => info.site === branch)?.authorPage.url ??
+              filteredInfos[0]?.authorPage.url ??
+              "");
+      };
+
+      const User = <T extends UserQuery | UserRankQuery>({
+        object,
+        branch,
+        isRank,
+      }: {
+        object: T;
+        branch: string;
+        isRank: boolean;
+      }): h => {
+        const dataArray: User[] = isRank ? (object as UserRankQuery).usersByRank : (object as UserQuery).searchUsers;
+
+        if (!dataArray || dataArray.length === 0) {
+          return <template>未找到用户。</template>;
+        }
+
+        const selectedIndex: number = dataArray.findIndex(
+          (user: User): boolean => !config.bannedUsers.some((banned: string): boolean => user.name === banned),
+        );
+
+        if (selectedIndex === -1) {
+          return <template>未找到符合条件的用户。</template>;
+        }
+
+        const user: User = dataArray[selectedIndex];
+        const userTotalRating: number = user.statistics.totalRating;
+        const userPageCount: number = user.statistics.pageCount;
+        const userAuthorPageUrl: string = normalizeUrl(authorpageOutput(user.name, user.authorInfos, branch));
+        const averageRating: string = userPageCount > 0 ? (userTotalRating / userPageCount).toFixed(2) : "0.00";
+
+        return (
+          <template>
+            <quote id={argv.session.event.message.id} />
+            {user.name} (#{user.statistics.rank})
+            <br />
+            总分：{userTotalRating}&emsp;总页面数：{userPageCount}&emsp;平均分：
+            {averageRating}
+            {userAuthorPageUrl && (
+              <template>
+                <br />
+                作者页：{userAuthorPageUrl}
+              </template>
+            )}
+          </template>
+        );
+      };
+
+      try {
+        const result = await cromApiRequest(authorName, branchUrl, 0, queryString);
+        const response = <User object={result} branch={branchUrl} isRank={isRankQuery} />;
+
+        const sentMessages = await argv.session.send(response);
+        scheduleChecks(0, argv.session, sentMessages[0]);
+
+        return;
+      } catch (err) {
+        return <template>查询失败: {err.message || "未知错误"}</template>;
+      }
+    });
 
   ctx
     .command("search <标题:string> [分部名称:string]", "查询文章信息。\n默认搜索后室中文站。")
     .alias("搜索")
     .alias("搜")
     .alias("sr")
-    .action(
-      async (argv: Argv, title: string, branch: string | undefined): Promise<JSX.IntrinsicElements["template"]> => {
-        const branchUrl = await getBranchUrl(branch, argv.args.at(-1), argv.session.event);
-        const titleName: string =
-          (branch && !Object.keys(branchInfo).includes(branch)) || !title ?
-            Object.keys(branchInfo).includes(argv.args.at(-1)) ?
-              argv.args.slice(0, -1).join(" ")
-            : argv.args.join(" ")
-          : title;
+    .action(async (argv: Argv, title: string, branch: string | undefined): Promise<h> => {
+      const branchUrl = await getBranchUrl(branch, argv.args.at(-1), argv.session.event);
+      const titleName: string =
+        (branch && !Object.keys(branchInfo).includes(branch)) || !title ?
+          Object.keys(branchInfo).includes(argv.args.at(-1)) ?
+            argv.args.slice(0, -1).join(" ")
+          : argv.args.join(" ")
+        : title;
 
-        const Author = ({
-          article,
-          isTranslation,
-        }: {
-          article: Title;
-          isTranslation: boolean;
-        }): JSX.IntrinsicElements["text"] => {
-          const prefix: string = isTranslation ? "译者：" : "作者：";
+      const Author = ({ article, isTranslation }: { article: Title; isTranslation: boolean }): h => {
+        const prefix: string = isTranslation ? "译者：" : "作者：";
 
-          if (!article.attributions) return <template>{prefix} 未知</template>;
+        if (!article.attributions) return <template>{prefix} 未知</template>;
 
-          const authors: string = article.attributions.map((attr: Attribution): string => attr.user.name).join("、");
+        const authors: string = article.attributions.map((attr: Attribution): string => attr.user.name).join("、");
 
-          if (!isTranslation) {
-            return (
-              <template>
-                {prefix}
-                {authors}
-              </template>
-            );
-          }
-
-          if (!article.translationOf || !article.translationOf.attributions) {
-            return (
-              <template>
-                {prefix}
-                {authors} 作者：未知
-              </template>
-            );
-          }
-
-          const originalAuthors: string = article.translationOf.attributions
-            .map((attr: Attribution): string => attr.user.name)
-            .join("、");
-
+        if (!isTranslation) {
           return (
             <template>
               {prefix}
-              {authors} 作者：{originalAuthors}
+              {authors}
             </template>
           );
-        };
+        }
 
-        const TitleProceed = ({ titleData }: { titleData: TitleQuery }): JSX.IntrinsicElements["template"] => {
-          if (!titleData.searchPages || titleData.searchPages.length === 0) {
-            return <template>未找到文章。</template>;
-          }
-
-          const selectedIndex: number = titleData.searchPages.findIndex((article: Title): boolean => {
-            const isBannedTitle: boolean = config.bannedTitles.includes(article.wikidotInfo.title);
-            const isBannedUser: boolean = config.bannedUsers.some((user: string): boolean =>
-              article.attributions.some((attr: Attribution): boolean => attr.user.name === user),
-            );
-            const isBannedTag: boolean = config.bannedTags.some((tag: string): boolean =>
-              article.wikidotInfo.tags.includes(tag),
-            );
-            return !(isBannedTitle || isBannedUser || isBannedTag);
-          });
-
-          if (selectedIndex === -1) {
-            return <template>未找到符合条件的文章。</template>;
-          }
-
-          const article: Title = titleData.searchPages[selectedIndex];
-          const { rating, voteCount } = article.wikidotInfo;
-          const positiveVotes: number = Math.round((voteCount + rating) / 2);
-          const negativeVotes: number = Math.round((voteCount - rating) / 2);
-
-          const alternateTitle: string | null =
-            article.alternateTitles && article.alternateTitles.length > 0 ?
-              <> - {article.alternateTitles[selectedIndex].title}</>
-            : null;
-
+        if (!article.translationOf || !article.translationOf.attributions) {
           return (
             <template>
-              <quote id={argv.session.event.message.id} />
-              {article.wikidotInfo.title}
-              {alternateTitle}
-              <br />
-              评分：{rating} (+{positiveVotes}, -{negativeVotes})
-              <br />
-              <Author article={article} isTranslation={Boolean(article.translationOf)} />
-              <br />
-              {normalizeUrl(article.url)}
+              {prefix}
+              {authors} 作者：未知
             </template>
           );
-        };
+        }
 
-        try {
-          const result = await cromApiRequest(titleName, branchUrl, 0, queries.titleQuery);
-          return <TitleProceed titleData={result} />;
-        } catch (err) {
-          return <template>查询失败：{err.message || "未知错误"}</template>;
+        const originalAuthors: string = article.translationOf.attributions
+          .map((attr: Attribution): string => attr.user.name)
+          .join("、");
+
+        return (
+          <template>
+            {prefix}
+            {authors} 作者：{originalAuthors}
+          </template>
+        );
+      };
+
+      const TitleProceed = ({ titleData }: { titleData: TitleQuery }): h => {
+        if (!titleData.searchPages || titleData.searchPages.length === 0) {
+          return <template>未找到文章。</template>;
+        }
+
+        const selectedIndex: number = titleData.searchPages.findIndex((article: Title): boolean => {
+          const isBannedTitle: boolean = config.bannedTitles.includes(article.wikidotInfo.title);
+          const isBannedUser: boolean = config.bannedUsers.some((user: string): boolean =>
+            article.attributions.some((attr: Attribution): boolean => attr.user.name === user),
+          );
+          const isBannedTag: boolean = config.bannedTags.some((tag: string): boolean =>
+            article.wikidotInfo.tags.includes(tag),
+          );
+          return !(isBannedTitle || isBannedUser || isBannedTag);
+        });
+
+        if (selectedIndex === -1) {
+          return <template>未找到符合条件的文章。</template>;
+        }
+
+        const article: Title = titleData.searchPages[selectedIndex];
+        const { rating, voteCount } = article.wikidotInfo;
+        const positiveVotes: number = Math.round((voteCount + rating) / 2);
+        const negativeVotes: number = Math.round((voteCount - rating) / 2);
+
+        const alternateTitle: string | null =
+          article.alternateTitles && article.alternateTitles.length > 0 ?
+            <> - {article.alternateTitles[selectedIndex].title}</>
+          : null;
+
+        return (
+          <template>
+            <quote id={argv.session.event.message.id} />
+            {article.wikidotInfo.title}
+            {alternateTitle}
+            <br />
+            评分：{rating} (+{positiveVotes}, -{negativeVotes})
+            <br />
+            <Author article={article} isTranslation={Boolean(article.translationOf)} />
+            <br />
+            {normalizeUrl(article.url)}
+          </template>
+        );
+      };
+
+      try {
+        const result = await cromApiRequest(titleName, branchUrl, 0, queries.titleQuery);
+        const response: h = <TitleProceed titleData={result} />;
+
+        const sentMessages = await argv.session.send(response);
+        scheduleChecks(0, argv.session, sentMessages[0]);
+
+        return;
+      } catch (err) {
+        return <template>查询失败：{err.message || "未知错误"}</template>;
+      }
+    });
+
+  const checkTimes = [10000, 30000, 60000, 90000, 11000, 12000];
+
+  const checkAndDelete = async (session: Session, sentMessage: string): Promise<boolean> => {
+    try {
+      const { messages: groupMessageHistory } = await session.onebot.getGroupMsgHistory(session.channelId);
+      const commandMessage = groupMessageHistory.find((msg) => String(msg.message_id) === session.event.message.id);
+
+      if ((commandMessage as unknown as { raw_message: string })?.raw_message === "") {
+        await session.onebot.deleteMsg(sentMessage);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      ctx.logger("crom-querier").warn("检测或撤回消息失败:", error);
+      return false;
+    }
+  };
+
+  const scheduleChecks = (index: number, session: Session, sentMessage: string): void => {
+    if (index >= checkTimes.length) return;
+
+    ctx.setTimeout(
+      async (): Promise<void> => {
+        const deleted = await checkAndDelete(session, sentMessage);
+        if (!deleted) {
+          scheduleChecks(index + 1, session, sentMessage);
         }
       },
+      index === 0 ? checkTimes[0] : checkTimes[index] - checkTimes[index - 1],
     );
+  };
 }
