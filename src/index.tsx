@@ -298,10 +298,9 @@ export function apply(ctx: Context, config: Config): void {
 
   const checkAndDelete = async (session: Session, sentMessage: string): Promise<boolean> => {
     try {
-      const { messages: groupMessageHistory } = await session.onebot.getGroupMsgHistory(session.channelId);
-      const commandMessage = groupMessageHistory.find((msg) => String(msg.message_id) === session.event.message.id);
+      const message = await session.onebot.getMsg(session.messageId);
 
-      if ((commandMessage as unknown as { raw_message: string })?.raw_message === "") {
+      if ((message as unknown as { raw_message: string })?.raw_message === "") {
         await session.onebot.deleteMsg(sentMessage);
         return true;
       }
