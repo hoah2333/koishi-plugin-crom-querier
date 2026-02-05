@@ -7,6 +7,7 @@ const apiList: string[] = [
 ];
 
 export const branchInfo: Record<string, { url: string }> = {
+  // br
   "cn": { url: "http://backrooms-wiki-cn.wikidot.com" },
   "en": { url: "http://backrooms-wiki.wikidot.com" },
   "es": { url: "http://es-backrooms-wiki.wikidot.com" },
@@ -17,6 +18,10 @@ export const branchInfo: Record<string, { url: string }> = {
   "ptbr": { url: "http://pt-br-backrooms-wiki.wikidot.com" },
   "ru": { url: "http://ru-backrooms-wiki.wikidot.com" },
   "vn": { url: "http://backrooms-vn.wikidot.com" },
+  "it": { url: "http://it-backrooms-wiki.wikidot.com" },
+  "de": { url: "http://de-backrooms-wiki.wikidot.com" },
+
+  // scp
   "scp-cn": { url: "http://scp-wiki-cn.wikidot.com" },
   "scp-cs": { url: "http://scp-cs.wikidot.com" },
   "scp-de": { url: "http://scp-wiki-de.wikidot.com" },
@@ -33,7 +38,20 @@ export const branchInfo: Record<string, { url: string }> = {
   "scp-th": { url: "http://scp-th.wikidot.com" },
   "scp-uk": { url: "http://scp-ukrainian.wikidot.com" },
   "scp-vn": { url: "http://scp-vn.wikidot.com" },
+  "scp-el": { url: "http://scp-el.wikidot.com" },
+  "scp-id": { url: "http://scp-id.wikidot.com" },
+
+  // others
   "na": { url: "http://nationarea.wikidot.com" },
+  "ci-cn": { url: "http://ci-cn-wiki.wikidot.com" },
+
+  // wl
+  "wl-en": { url: "http://wanderers-library.wikidot.com" },
+  "wl-pl": { url: "http://wanderers-library-pl.wikidot.com" },
+  "wl-jp": { url: "http://wanderers-library-jp.wikidot.com" },
+  "wl-cs": { url: "http://wanderers-library-cs.wikidot.com" },
+  "wl-ko": { url: "http://wanderers-library-ko.wikidot.com" },
+  "wl-vn": { url: "http://wanderers-library-vn.wikidot.com" },
 };
 
 export async function cromApiRequest(
