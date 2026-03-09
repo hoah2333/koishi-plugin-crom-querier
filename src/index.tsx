@@ -62,6 +62,8 @@ export function apply(ctx: Context, config: Config): void {
       return branchInfo[branch].url;
     } else if (branchUrls.length > 0) {
       return branchInfo[branchUrls[0].defaultBranch].url;
+    } else if (branch === "all" || lastStr === "all") {
+      throw new Error("all 分部查询已禁用。请指定具体分部。");
     } else {
       return branchInfo.cn.url;
     }
@@ -257,7 +259,7 @@ export function apply(ctx: Context, config: Config): void {
         }
 
         const article: Title = titleData.searchPages[selectedIndex];
-        const { rating, voteCount } = article.wikidotInfo;
+        const { rating, voteCount, commentCount } = article.wikidotInfo;
         const positiveVotes: number = Math.round((voteCount + rating) / 2);
         const negativeVotes: number = Math.round((voteCount - rating) / 2);
 
@@ -272,7 +274,7 @@ export function apply(ctx: Context, config: Config): void {
             {article.wikidotInfo.title}
             {alternateTitle}
             <br />
-            评分：{rating} (+{positiveVotes}, -{negativeVotes})
+            评分：{rating} (+{positiveVotes}, -{negativeVotes})&emsp;评论：{commentCount}
             <br />
             <Author article={article} isTranslation={Boolean(article.translationOf)} />
             <br />

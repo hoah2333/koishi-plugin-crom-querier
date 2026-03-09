@@ -40,6 +40,7 @@ interface TitleWikidotInfo {
   voteCount: number;
   createdAt: Date;
   tags: string[];
+  commentCount: number;
 }
 
 export interface Title {

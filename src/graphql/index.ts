@@ -11,6 +11,7 @@ export const queries = {
           voteCount
           createdAt
           tags
+          commentCount
         }
         alternateTitles {
           title

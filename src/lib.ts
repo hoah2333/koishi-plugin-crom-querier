@@ -71,10 +71,10 @@ export async function cromApiRequest(
       body: JSON.stringify({
         query: queryString,
         variables: {
-          query: titleQuery,
+          query: String(titleQuery),
           anyBaseUrl: baseUrl !== "" ? baseUrl : null,
           baseUrl,
-          rank: parseInt(titleQuery.replace(/#([0-9]{1,15})/, "$1")) || 0,
+          rank: parseInt(String(titleQuery).replace(/#([0-9]{1,15})/, "$1")) || 0,
         },
       }),
     });
