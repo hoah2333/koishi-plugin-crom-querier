@@ -1,7 +1,7 @@
 import { Context, Schema } from "koishi";
 import {} from "koishi-plugin-adapter-onebot";
 import { queries } from "./graphql";
-import { branchInfo, cromApiRequest } from "./lib";
+import { branchInfo, checkProxyStatus, cromApiRequest } from "./lib";
 
 import type { Event } from "@satorijs/protocol";
 import type { Argv, h, Session } from "koishi";
@@ -44,11 +44,16 @@ export function apply(ctx: Context, config: Config): void {
     defaultBranch: "string(64)",
   });
 
-  const normalizeUrl = (url: string): string =>
-    url
-      .replace(/^https?:\/\/backrooms-wiki-cn.wikidot.com/, "https://brcn.backroomswiki.cn")
-      .replace(/^https?:\/\/scp-wiki-cn.wikidot.com/, "https://scpcn.backroomswiki.cn")
-      .replace(/^https?:\/\/([a-z]+-wiki-cn|nationarea)/, "https://$1");
+  const normalizeUrl = (url: string): string => {
+    const proxyStatus: boolean = checkProxyStatus("https://brcn.backroomswiki.cn");
+    if (proxyStatus) {
+      return url
+        .replace(/^https?:\/\/backrooms-wiki-cn.wikidot.com/, "https://brcn.backroomswiki.cn")
+        .replace(/^https?:\/\/scp-wiki-cn.wikidot.com/, "https://scpcn.backroomswiki.cn")
+        .replace(/^https?:\/\/([a-z]+-wiki-cn|nationarea)/, "https://$1");
+    }
+    return url.replace(/^https?:\/\/([a-z]+-wiki-cn|nationarea)/, "https://$1");
+  };
 
   const getBranchUrl = async (
     branch: string | undefined,

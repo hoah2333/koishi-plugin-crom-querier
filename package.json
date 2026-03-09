@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-crom-querier",
   "description": "向crom查询并返回文本的插件，自用",
-  "version": "1.4.9",
+  "version": "1.4.10",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -14,7 +14,11 @@
     "type": "git",
     "url": "git+https://github.com/hoah2333/koishi-plugin-crom-querier.git"
   },
-  "scripts": {},
+  "scripts": {
+    "dev": "cd ../.. && npm run dev",
+    "build": "cd ../.. && npm run build crom-querier",
+    "postpublish": "npm run build"
+  },
   "keywords": [
     "chatbot",
     "koishi",

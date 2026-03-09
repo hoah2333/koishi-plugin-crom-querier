@@ -101,3 +101,26 @@ export async function cromApiRequest(
 export function getBranchUrl(branch: string): string {
   return branchInfo[branch]?.url || "";
 }
+
+export const checkProxyStatus = (() => {
+  let lastCheckTime: number = 0;
+  let lastStatus: boolean = false;
+
+  return (proxyUrl: string): boolean => {
+    const now: number = Date.now();
+    if (now - lastCheckTime < 100000) {
+      return lastStatus;
+    }
+    lastCheckTime = now;
+
+    fetch(proxyUrl)
+      .then((response: Response) => {
+        lastStatus = response.ok;
+      })
+      .catch(() => {
+        lastStatus = false;
+      });
+
+    return lastStatus;
+  };
+})();
